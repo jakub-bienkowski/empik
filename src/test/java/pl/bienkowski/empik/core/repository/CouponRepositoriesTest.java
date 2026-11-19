@@ -7,19 +7,26 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.MediaType;
+import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import pl.bienkowski.empik.core.exception.CouponAlreadyRedeemedException;
+import pl.bienkowski.empik.core.exception.CouponUsageLimitReachedException;
 import pl.bienkowski.empik.core.model.CouponRedemptionId;
+import pl.bienkowski.empik.core.service.CouponRedeemService;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Signal;
 import reactor.netty.DisposableServer;
 import reactor.netty.http.server.HttpServer;
 import reactor.test.StepVerifier;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -81,18 +88,24 @@ class CouponRepositoriesTest {
     @Autowired
     CouponRedemptionRepository redemptions;
 
+    @Autowired
+    CouponRedeemService redeemService;
+
+    @Autowired
+    DatabaseClient database;
+
     @LocalServerPort
     int port;
 
     @Test
-    void servesHealthProbes() {
+    void healthProbes_whenAppAndDatabaseAreReady_thenReturnOk() {
         var client = httpClient();
         client.get().uri("/health/liveness").exchange().expectStatus().isOk();
         client.get().uri("/health/readiness").exchange().expectStatus().isOk();
     }
 
     @Test
-    void createsAndRedeemsCouponWithoutLeavingARecordForAFailedRedemption() {
+    void redeem_whenCouponHasNoSlotsLeft_thenDoesNotPersistFailedRedemption() {
         var client = httpClient();
         client.post().uri("/coupons").contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(Map.of("countryCode", "PL", "maxUsages", 0))
@@ -135,7 +148,7 @@ class CouponRepositoriesTest {
                 .expectBody().jsonPath("$.detail").isEqualTo("Coupon not found");
         redeem(client, code, "user-1", GERMAN_IP).expectStatus().isForbidden()
                 .expectBody().jsonPath("$.detail").isEqualTo("Country not allowed");
-        redeem(client, code, "user-1", POLISH_IP).expectStatus().isNoContent();
+        redeem(client, code.toUpperCase(Locale.ROOT), "user-1", POLISH_IP).expectStatus().isNoContent();
         redeem(client, code, "user-1", POLISH_IP).expectStatus().isEqualTo(409)
                 .expectBody().jsonPath("$.detail").isEqualTo("Coupon already redeemed by this user");
         redeem(client, code, "user-2", POLISH_IP).expectStatus().isEqualTo(409)
@@ -148,6 +161,47 @@ class CouponRepositoriesTest {
                                 .doOnNext(exists -> assertThat(exists).isFalse())
                                 .thenReturn(coupon.getCurrentUsages())))
                 .expectNext(1)
+                .expectComplete()
+                .verify(Duration.ofSeconds(10));
+    }
+
+    @Test
+    void redeem_whenTwoUsersRaceForLastSlot_thenPersistsOnlyOneRedemption() {
+        assertConcurrentRedemptions(1, "user-2", CouponUsageLimitReachedException.class);
+    }
+
+    @Test
+    void redeem_whenSameUserRedeemsConcurrentlyWithSpareCapacity_thenCountsOnlyOneRedemption() {
+        assertConcurrentRedemptions(2, "user-1", CouponAlreadyRedeemedException.class);
+    }
+
+    private void assertConcurrentRedemptions(int maxUsages, String secondUser, Class<? extends Throwable> failureType) {
+        UUID id = UUID.randomUUID();
+        UUID code = UUID.randomUUID();
+        var first = redeemService.redeem(code, "user-1", POLISH_IP).materialize();
+        var second = redeemService.redeem(code, secondUser, POLISH_IP).materialize();
+
+        StepVerifier.create(coupons.insert(id, code, "PL", maxUsages)
+                        .then(Mono.zip(first, second))
+                        .flatMap(outcomes -> {
+                            var signals = List.of(outcomes.getT1(), outcomes.getT2());
+                            assertThat(signals).filteredOn(Signal::isOnComplete).hasSize(1);
+                            assertThat(signals).filteredOn(Signal::isOnError).singleElement()
+                                    .satisfies(signal -> assertThat(signal.getThrowable()).isInstanceOf(failureType));
+
+                            String winner = outcomes.getT1().isOnComplete() ? "user-1" : secondUser;
+                            return coupons.findById(id).zipWith(database.sql("""
+                                            SELECT user_id FROM coupon_redemptions WHERE coupon_id = :id
+                                            """)
+                                    .bind("id", id)
+                                    .map((row, _) -> row.get("user_id", String.class))
+                                    .all().collectList())
+                                    .doOnNext(state -> {
+                                        assertThat(state.getT1().getCurrentUsages()).isEqualTo(1);
+                                        assertThat(state.getT2()).containsExactly(winner);
+                                    });
+                        }))
+                .expectNextCount(1)
                 .expectComplete()
                 .verify(Duration.ofSeconds(10));
     }
@@ -167,7 +221,7 @@ class CouponRepositoriesTest {
     }
 
     @Test
-    void insertsCouponWithDatabaseDefaultsAndFindsItByCodeAndId() {
+    void insert_whenCouponIsNew_thenAppliesDatabaseDefaultsAndSupportsLookupByCodeAndId() {
         UUID id = UUID.randomUUID();
         UUID code = UUID.randomUUID();
 
@@ -191,7 +245,7 @@ class CouponRepositoriesTest {
     }
 
     @Test
-    void readsRedemptionByCompositeIdAndRejectsDuplicate() {
+    void insert_whenRedemptionKeyAlreadyExists_thenRejectsDuplicateAndPreservesOriginal() {
         UUID couponId = UUID.randomUUID();
         var id = new CouponRedemptionId(couponId, "user-1");
 

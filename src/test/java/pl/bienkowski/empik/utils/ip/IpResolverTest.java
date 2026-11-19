@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class IpResolverTest {
 
     @Test
-    void retriesServiceUnavailableAndReturnsTheRecoveredCountry() {
+    void resolve_whenProviderRecoversAfterThree503Responses_thenReturnsCountry() {
         var attempts = new AtomicInteger();
         var client = WebClient.builder().exchangeFunction(request -> Mono.just(
                 attempts.incrementAndGet() <= 3
@@ -35,7 +35,7 @@ class IpResolverTest {
     }
 
     @Test
-    void stopsAfterThreeTimeoutRetries() {
+    void resolve_whenProviderKeepsTimingOut_thenFailsAfterThreeRetries() {
         var attempts = new AtomicInteger();
         var client = WebClient.builder().exchangeFunction(request -> {
             attempts.incrementAndGet();
@@ -51,7 +51,7 @@ class IpResolverTest {
     }
 
     @Test
-    void doesNotRetryOtherHttpErrors() {
+    void resolve_whenProviderReturns500_thenFailsWithoutRetrying() {
         var attempts = new AtomicInteger();
         var client = WebClient.builder().exchangeFunction(request -> {
             attempts.incrementAndGet();

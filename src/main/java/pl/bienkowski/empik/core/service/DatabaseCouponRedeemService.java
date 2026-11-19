@@ -14,7 +14,7 @@ import pl.bienkowski.empik.core.model.CouponRedemptionId;
 import pl.bienkowski.empik.core.repository.CouponRedemptionRepository;
 import pl.bienkowski.empik.core.repository.CouponRepository;
 import pl.bienkowski.empik.core.validation.CouponRedeemValidator;
-import pl.bienkowski.empik.utils.ip.IpResolver;
+import pl.bienkowski.empik.utils.ip.CountryResolver;
 import reactor.core.publisher.Mono;
 
 import java.util.UUID;
@@ -25,25 +25,25 @@ public class DatabaseCouponRedeemService implements CouponRedeemService {
     private final CouponRepository coupons;
     private final CouponRedemptionRepository redemptions;
     private final CouponRedeemValidator validator;
-    private final IpResolver ipResolver;
+    private final CountryResolver countryResolver;
     private final TransactionalOperator transactions;
 
     public DatabaseCouponRedeemService(CouponRepository coupons,
                                        CouponRedemptionRepository redemptions,
                                        CouponRedeemValidator validator,
-                                       IpResolver ipResolver,
+                                       CountryResolver countryResolver,
                                        TransactionalOperator transactions) {
         this.coupons = coupons;
         this.redemptions = redemptions;
         this.validator = validator;
-        this.ipResolver = ipResolver;
+        this.countryResolver = countryResolver;
         this.transactions = transactions;
     }
 
     @Override
     public Mono<Void> redeem(UUID code, String userId, String clientIp) {
         return Mono.fromRunnable(() -> validator.validateIp(clientIp))
-                .then(Mono.defer(() -> ipResolver.resolve(clientIp)))
+                .then(Mono.defer(() -> countryResolver.resolve(clientIp)))
                 .switchIfEmpty(Mono.error(ClientCountryUnavailableException::new))
                 .flatMap(country -> Mono.fromRunnable(() -> validator.validateCountry(country))
                         .then(Mono.defer(() -> transactions.transactional(redeemInDatabase(code, userId, country)))));

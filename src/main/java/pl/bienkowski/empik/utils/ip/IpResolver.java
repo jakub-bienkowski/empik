@@ -18,7 +18,7 @@ import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 
 @Component
-public final class IpResolver {
+public final class IpResolver implements CountryResolver {
 
     private static final String IP_ENDPOINT = "/lite/{ip}";
     private static final Retry LOOKUP_RETRY = Retry.backoff(3, Duration.ofMillis(100))
@@ -37,6 +37,7 @@ public final class IpResolver {
         this.lookupTimeout = Duration.ofMillis(lookupTimeoutMs);
     }
 
+    @Override
     public Mono<String> resolve(String ip) {
         if (token.isBlank()) {
             return Mono.error(CountryLookupUnavailableException::new);
