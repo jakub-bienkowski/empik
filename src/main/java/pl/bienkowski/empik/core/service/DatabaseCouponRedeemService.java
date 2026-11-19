@@ -1,6 +1,6 @@
 package pl.bienkowski.empik.core.service;
 
-import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
@@ -20,6 +20,7 @@ import reactor.core.publisher.Mono;
 import java.util.UUID;
 
 @Service
+@NullMarked
 public class DatabaseCouponRedeemService implements CouponRedeemService {
 
     private final CouponRepository coupons;
@@ -55,7 +56,7 @@ public class DatabaseCouponRedeemService implements CouponRedeemService {
                 .flatMap(coupon -> updateUsage(userId, countryCode, coupon));
     }
 
-    private @NonNull Mono<Void> updateUsage(String userId, String countryCode, CouponEntity coupon) {
+    private Mono<Void> updateUsage(String userId, String countryCode, CouponEntity coupon) {
         if (!coupon.getCountryCode().equals(countryCode)) {
             return Mono.error(CouponCountryMismatchException::new);
         }

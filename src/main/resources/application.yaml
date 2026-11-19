@@ -26,3 +26,7 @@ ipinfo:
   connect-timeout-ms: ${IPINFO_CONNECT_TIMEOUT_MS:1000}
   response-timeout-ms: ${IPINFO_RESPONSE_TIMEOUT_MS:2000}
   lookup-timeout-ms: ${IPINFO_LOOKUP_TIMEOUT_MS:3000}
+  cache:
+    # Per-instance IP-to-country cache; set maximum-size to 0 to disable retention.
+    maximum-size: ${IPINFO_CACHE_MAXIMUM_SIZE:10000}
+    ttl: ${IPINFO_CACHE_TTL:1h}
