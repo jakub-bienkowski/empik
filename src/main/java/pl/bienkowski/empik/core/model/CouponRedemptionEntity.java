@@ -10,7 +10,7 @@ import java.time.Instant;
 import static java.util.Objects.requireNonNull;
 
 @Table("coupon_redemptions")
-public final class CouponRedemption {
+public final class CouponRedemptionEntity {
 
     @Id
     @Embedded(onEmpty = Embedded.OnEmpty.USE_NULL)
@@ -18,7 +18,7 @@ public final class CouponRedemption {
     @Column("redeemed_at")
     private final Instant redeemedAt;
 
-    public CouponRedemption(CouponRedemptionId id, Instant redeemedAt) {
+    public CouponRedemptionEntity(CouponRedemptionId id, Instant redeemedAt) {
         this.id = requireNonNull(id, "id");
         this.redeemedAt = requireNonNull(redeemedAt, "redeemedAt");
     }

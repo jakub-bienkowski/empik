@@ -4,16 +4,16 @@ import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
-import pl.bienkowski.empik.core.model.Coupon;
+import pl.bienkowski.empik.core.model.CouponEntity;
 import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
-public interface CouponRepository extends Repository<Coupon, UUID> {
+public interface CouponRepository extends Repository<CouponEntity, UUID> {
 
-    Mono<Coupon> findById(UUID id);
+    Mono<CouponEntity> findById(UUID id);
 
-    Mono<Coupon> findByCode(UUID code);
+    Mono<CouponEntity> findByCode(UUID code);
 
     @Modifying
     @Query("""
@@ -28,7 +28,7 @@ public interface CouponRepository extends Repository<Coupon, UUID> {
             VALUES (:id, :code, :countryCode, :maxUsages)
             RETURNING id, code, country_code, max_usages, current_usages, created_at
             """)
-    Mono<Coupon> insert(
+    Mono<CouponEntity> insert(
             @Param("id") UUID id,
             @Param("code") UUID code,
             @Param("countryCode") String countryCode,
