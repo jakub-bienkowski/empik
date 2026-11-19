@@ -4,6 +4,8 @@ server:
 spring:
   webflux:
     base-path: ${API_BASE_PATH:/empik}
+    problemdetails:
+      enabled: true
   r2dbc:
     url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5435}/${DB_NAME:empik}
     username: ${DB_USER:empik}

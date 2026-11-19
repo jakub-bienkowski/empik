@@ -1,5 +1,6 @@
 package pl.bienkowski.empik.core.repository;
 
+import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +14,14 @@ public interface CouponRepository extends Repository<Coupon, UUID> {
     Mono<Coupon> findById(UUID id);
 
     Mono<Coupon> findByCode(UUID code);
+
+    @Modifying
+    @Query("""
+            UPDATE coupons
+            SET current_usages = current_usages + 1
+            WHERE id = :id AND current_usages < max_usages
+            """)
+    Mono<Integer> claimUsage(@Param("id") UUID id);
 
     @Query("""
             INSERT INTO coupons (id, code, country_code, max_usages)
