@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Signal;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 /**
@@ -23,22 +24,26 @@ public final class CaffeineCache<K, V> implements Cacheable<K, V> {
 
     @Override
     public Mono<V> getOrLoad(K key, Supplier<Mono<V>> loader) {
-        // One caller cancelling must not cancel an in-flight lookup shared by others.
         return Mono.defer(() -> {
-            // Materializing failures prevents Caffeine from logging loader exceptions with sensitive details.
-            var future = cache.get(key, (ignored, _) -> Mono.defer(loader).materialize().toFuture());
-            future.thenAccept(signal -> {
-                if (!signal.isOnNext()) {
-                    cache.asMap().remove(key, future);
-                }
-            });
-            return Mono.fromFuture(future, true)
-                    .doOnNext(signal -> {
-                        if (!signal.isOnNext()) {
-                            cache.asMap().remove(key, future);
-                        }
-                    })
+            var sharedLoad = cache.get(key, (ignored, _) -> loadAsSignal(loader));
+            // Evict after completion even if every subscriber has cancelled.
+            sharedLoad.thenAccept(signal -> removeUncacheableResult(key, sharedLoad, signal));
+
+            // Also evict before delivering the result, so immediate retries start a new load.
+            return Mono.fromFuture(sharedLoad, true)
+                    .doOnNext(signal -> removeUncacheableResult(key, sharedLoad, signal))
                     .dematerialize();
         });
+    }
+
+    private CompletableFuture<Signal<V>> loadAsSignal(Supplier<Mono<V>> loader) {
+        // Materializing avoids Caffeine logging potentially sensitive loader exceptions.
+        return Mono.defer(loader).materialize().toFuture();
+    }
+
+    private void removeUncacheableResult(K key, CompletableFuture<Signal<V>> sharedLoad, Signal<V> result) {
+        if (!result.isOnNext()) {
+            cache.asMap().remove(key, sharedLoad);
+        }
     }
 }

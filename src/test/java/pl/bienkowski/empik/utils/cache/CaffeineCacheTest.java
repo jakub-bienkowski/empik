@@ -87,6 +87,28 @@ class CaffeineCacheTest {
         assertCountry("PL");
     }
 
+    @Test
+    void getOrLoad_whenAllSubscribersCancelAndLoadIsEmpty_thenDoesNotRetainEmptyResult() {
+        var result = Sinks.<String>one();
+        when(loader.resolve(IP)).thenReturn(result.asMono(), Mono.just("PL"));
+
+        var subscription = lookup().subscribe();
+        subscription.dispose();
+        result.tryEmitEmpty();
+
+        assertCountry("PL");
+    }
+
+    @Test
+    void getOrLoad_whenFailureIsImmediatelyRetried_thenStartsNewLoad() {
+        when(loader.resolve(IP)).thenReturn(Mono.error(new IllegalStateException("lookup failed")), Mono.just("PL"));
+
+        StepVerifier.create(lookup().onErrorResume(error -> lookup()))
+                .expectNext("PL")
+                .expectComplete()
+                .verify(TEST_TIMEOUT);
+    }
+
     private Mono<String> lookup() {
         return cache.getOrLoad(IP, () -> loader.resolve(IP));
     }

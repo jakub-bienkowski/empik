@@ -1,6 +1,21 @@
 # Coupon service
 
-A REST API for creating country-restricted coupons and redeeming them. No authentication is required. Each supplied `userId` can redeem a coupon once, and each coupon has a total usage limit.
+A REST API for creating and redeeming country-restricted coupons. A coupon has a caller-supplied code, a country and a maximum number of uses. Codes are unique within a country, and each supplied `userId` can redeem a given coupon once.
+
+On redemption, the service resolves the client's country from its IP address and selects the coupon for that country. It then records the redemption and increments the usage count in a single transaction. No authentication is required, so `userId` is supplied by the caller rather than verified as an identity.
+
+## Technology choices
+
+| Technology | Role and rationale |
+| --- | --- |
+| **Java 25 and Spring Boot** | Java provides the application runtime; Spring Boot supplies dependency injection, configuration and application lifecycle management. |
+| **Spring WebFlux and Reactor** | The API and IPinfo client use a reactive model for non-blocking HTTP I/O. Reactor also provides timeouts and retry handling for the external lookup. This approach adds reactive programming complexity compared with a blocking application. |
+| **Spring Data R2DBC and PostgreSQL** | R2DBC keeps database access reactive. PostgreSQL transactions, uniqueness constraints and a conditional update protect the per-user and total usage limits, including under concurrent requests. |
+| **Liquibase** | Versioned schema changes create and evolve the PostgreSQL tables consistently across environments. Liquibase uses JDBC at startup; runtime repository access uses R2DBC. |
+| **IPinfo Lite and Caffeine** | IPinfo supplies the country associated with a client IP. An in-memory, per-instance Caffeine cache reduces repeated lookups; it has configurable capacity and expiry and does not retain empty or failed lookups. |
+| **Bean Validation and JSpecify** | Bean Validation checks request constraints at the API boundary, while JSpecify annotations express nullability expectations in the code. |
+| **Maven, JUnit, Mockito and Reactor Test** | Maven manages dependencies and builds; the test libraries support unit tests, HTTP controller tests and verification of reactive behavior. |
+| **Jib** | Builds a container image from the Maven project without requiring a Dockerfile. |
 
 ## Run locally
 
@@ -38,7 +53,7 @@ The default base URL is `http://127.0.0.1:8080/empik`. For local testing, you ca
 
 IPinfo requests use a direct network connection. If redemption returns `503` and logs show a connection timeout, check that the application can reach `api.ipinfo.io` on port 443 from its runtime environment. Insomnia may use a different network or proxy configuration. The connect, response and per-attempt lookup timeouts can be adjusted with `IPINFO_CONNECT_TIMEOUT_MS` (default `1000`), `IPINFO_RESPONSE_TIMEOUT_MS` (default `2000`) and `IPINFO_LOOKUP_TIMEOUT_MS` (default `3000`).
 
-IPinfo lookup failures are logged without the client IP or token. Failed provider requests include a reason and duration. Retry details are available at DEBUG level for `pl.bienkowski.empik.core.geolocation.IpGeolocationResolver`. Database readiness logs only failure and recovery transitions, not every probe.
+IPinfo lookup failures are logged without the client IP or token. Failed provider requests include a reason and duration. Retry details are available at DEBUG level for `pl.bienkowski.empik.core.geolocation.IpGeolocationResolver`.
 
 ## API
 
@@ -92,7 +107,7 @@ Use the case-sensitive `code` supplied at creation. If the same code exists in m
 | `403 Forbidden` | `Client country unavailable` if the header is missing or invalid, or the IP does not resolve to a valid country. `Country not allowed` if the resolved country does not match the coupon. |
 | `404 Not Found` | `Coupon not found` |
 | `409 Conflict` | `Coupon already redeemed by this user` or `Coupon usage limit reached` |
-| `503 Service Unavailable` | `IP country lookup is unavailable` |
+| `503 Service Unavailable` | IP country lookup is unavailable. |
 | `500 Internal Server Error` | An unexpected error occurs. |
 
 ### Health endpoints
