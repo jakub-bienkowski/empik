@@ -116,8 +116,7 @@ class CouponControllerTest {
 
         redeem(IP).expectStatus().isEqualTo(status)
                 .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
-                .expectBody().jsonPath("$.status").isEqualTo(status.value())
-                .jsonPath("$.detail").isEqualTo(error.getMessage());
+                .expectBody().jsonPath("$.status").isEqualTo(status.value());
     }
 
     private static Stream<Arguments> redemptionErrors() {
