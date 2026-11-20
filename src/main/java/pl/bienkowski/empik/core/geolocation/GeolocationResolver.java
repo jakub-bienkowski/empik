@@ -1,4 +1,4 @@
-package pl.bienkowski.empik.utils.ip;
+package pl.bienkowski.empik.core.geolocation;
 
 import reactor.core.publisher.Mono;
 

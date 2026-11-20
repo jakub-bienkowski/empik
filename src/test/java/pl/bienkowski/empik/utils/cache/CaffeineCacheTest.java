@@ -2,7 +2,7 @@ package pl.bienkowski.empik.utils.cache;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.junit.jupiter.api.Test;
-import pl.bienkowski.empik.utils.ip.GeolocationResolver;
+import pl.bienkowski.empik.core.geolocation.GeolocationResolver;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;

@@ -1,17 +1,18 @@
-package pl.bienkowski.empik.core.model;
+package pl.bienkowski.empik.core.domain;
+
+import pl.bienkowski.empik.core.model.CouponEntity;
 
 import java.time.Instant;
-import java.util.UUID;
 
 public final class Coupon {
 
-    private final UUID code;
+    private final String code;
     private final String countryCode;
     private final int maxUsages;
     private final int currentUsages;
     private final Instant createdAt;
 
-    private Coupon(UUID code, String countryCode, int maxUsages, int currentUsages, Instant createdAt) {
+    private Coupon(String code, String countryCode, int maxUsages, int currentUsages, Instant createdAt) {
         this.code = code;
         this.countryCode = countryCode;
         this.maxUsages = maxUsages;
@@ -24,7 +25,7 @@ public final class Coupon {
                 entity.getCurrentUsages(), entity.getCreatedAt());
     }
 
-    public UUID getCode() {
+    public String getCode() {
         return code;
     }
 

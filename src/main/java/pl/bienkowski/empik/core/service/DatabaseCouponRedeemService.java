@@ -14,10 +14,8 @@ import pl.bienkowski.empik.core.model.CouponRedemptionId;
 import pl.bienkowski.empik.core.repository.CouponRedemptionRepository;
 import pl.bienkowski.empik.core.repository.CouponRepository;
 import pl.bienkowski.empik.core.validation.CouponRedeemValidator;
-import pl.bienkowski.empik.utils.ip.GeolocationResolver;
+import pl.bienkowski.empik.core.geolocation.GeolocationResolver;
 import reactor.core.publisher.Mono;
-
-import java.util.UUID;
 
 @Service
 @NullMarked
@@ -42,7 +40,7 @@ public class DatabaseCouponRedeemService implements CouponRedeemService {
     }
 
     @Override
-    public Mono<Void> redeem(UUID code, String userId, String clientIp) {
+    public Mono<Void> redeem(String code, String userId, String clientIp) {
         return Mono.fromRunnable(() -> validator.validateIp(clientIp))
                 .then(Mono.defer(() -> geolocationResolver.resolve(clientIp)))
                 .switchIfEmpty(Mono.error(ClientCountryUnavailableException::new))
@@ -50,17 +48,16 @@ public class DatabaseCouponRedeemService implements CouponRedeemService {
                         .then(Mono.defer(() -> transactions.transactional(redeemInDatabase(code, userId, country)))));
     }
 
-    private Mono<Void> redeemInDatabase(UUID code, String userId, String countryCode) {
-        return coupons.findByCode(code)
-                .switchIfEmpty(Mono.error(CouponNotFoundException::new))
-                .flatMap(coupon -> updateUsage(userId, countryCode, coupon));
+    private Mono<Void> redeemInDatabase(String code, String userId, String countryCode) {
+        return coupons.findByCodeAndCountryCode(code, countryCode)
+                .switchIfEmpty(Mono.defer(() -> coupons.existsByCode(code)
+                        .flatMap(exists -> exists
+                                ? Mono.error(new CouponCountryMismatchException())
+                                : Mono.error(new CouponNotFoundException()))))
+                .flatMap(coupon -> updateUsage(userId, coupon));
     }
 
-    private Mono<Void> updateUsage(String userId, String countryCode, CouponEntity coupon) {
-        if (!coupon.getCountryCode().equals(countryCode)) {
-            return Mono.error(CouponCountryMismatchException::new);
-        }
-
+    private Mono<Void> updateUsage(String userId, CouponEntity coupon) {
         var redemptionId = new CouponRedemptionId(coupon.getId(), userId);
         return redemptions.insert(redemptionId)
                 .onErrorMap(DuplicateKeyException.class, CouponAlreadyRedeemedException::new)

@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import pl.bienkowski.empik.core.exception.CountryLookupUnavailableException;
+import pl.bienkowski.empik.core.geolocation.IpGeolocationResolver;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -14,6 +15,38 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class IpGeolocationResolverTest {
+
+    @Test
+    void resolve_sendsRequestedIpAndConfiguredToken() {
+        var client = WebClient.builder().baseUrl("https://example.test")
+                .exchangeFunction(request -> {
+                    assertThat(request.url().getPath()).isEqualTo("/lite/8.8.8.8");
+                    assertThat(request.headers().getFirst("Authorization")).isEqualTo("Bearer configured-token");
+                    return Mono.just(ClientResponse.create(HttpStatus.OK)
+                            .header("Content-Type", "application/json")
+                            .body("{\"country_code\":\"US\"}").build());
+                }).build();
+        var resolver = new IpGeolocationResolver(client, "configured-token", 1000);
+
+        StepVerifier.create(resolver.resolve("8.8.8.8"))
+                .expectNext("US")
+                .verifyComplete();
+    }
+
+    @Test
+    void resolve_whenTokenIsBlank_thenDoesNotMakeRequest() {
+        var attempts = new AtomicInteger();
+        var client = WebClient.builder().exchangeFunction(request -> {
+            attempts.incrementAndGet();
+            return Mono.error(new AssertionError("Unexpected provider request"));
+        }).build();
+        var resolver = new IpGeolocationResolver(client, "", 1000);
+
+        StepVerifier.create(resolver.resolve("8.8.8.8"))
+                .expectError(CountryLookupUnavailableException.class)
+                .verify(Duration.ofSeconds(5));
+        assertThat(attempts.get()).isZero();
+    }
 
     @Test
     void resolve_whenProviderRecoversAfterThree503Responses_thenReturnsCountry() {

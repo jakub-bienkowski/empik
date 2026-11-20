@@ -13,7 +13,9 @@ public interface CouponRepository extends Repository<CouponEntity, UUID> {
 
     Mono<CouponEntity> findById(UUID id);
 
-    Mono<CouponEntity> findByCode(UUID code);
+    Mono<CouponEntity> findByCodeAndCountryCode(String code, String countryCode);
+
+    Mono<Boolean> existsByCode(String code);
 
     @Modifying
     @Query("""
@@ -26,11 +28,12 @@ public interface CouponRepository extends Repository<CouponEntity, UUID> {
     @Query("""
             INSERT INTO coupons (id, code, country_code, max_usages)
             VALUES (:id, :code, :countryCode, :maxUsages)
+            ON CONFLICT (code, country_code) DO NOTHING
             RETURNING id, code, country_code, max_usages, current_usages, created_at
             """)
     Mono<CouponEntity> insert(
             @Param("id") UUID id,
-            @Param("code") UUID code,
+            @Param("code") String code,
             @Param("countryCode") String countryCode,
             @Param("maxUsages") int maxUsages
     );

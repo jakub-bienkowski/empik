@@ -16,7 +16,7 @@ public final class CouponEntity {
     @Column("id")
     private final UUID id;
     @Column("code")
-    private final UUID code;
+    private final String code;
     @Column("created_at")
     private final Instant createdAt;
     @Column("country_code")
@@ -26,7 +26,7 @@ public final class CouponEntity {
     @Column("current_usages")
     private final int currentUsages;
 
-    public CouponEntity(UUID id, UUID code, Instant createdAt, String countryCode, int maxUsages, int currentUsages) {
+    public CouponEntity(UUID id, String code, Instant createdAt, String countryCode, int maxUsages, int currentUsages) {
         this.id = requireNonNull(id, "id");
         this.code = requireNonNull(code, "code");
         this.createdAt = requireNonNull(createdAt, "createdAt");
@@ -39,7 +39,7 @@ public final class CouponEntity {
         return id;
     }
 
-    public UUID getCode() {
+    public String getCode() {
         return code;
     }
 

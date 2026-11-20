@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import pl.bienkowski.empik.api.dto.CreateCouponRequest;
 import pl.bienkowski.empik.api.dto.RedeemCouponRequest;
 import pl.bienkowski.empik.core.exception.ClientCountryUnavailableException;
-import pl.bienkowski.empik.core.model.Coupon;
+import pl.bienkowski.empik.core.domain.Coupon;
 import pl.bienkowski.empik.core.service.CouponRedeemService;
 import pl.bienkowski.empik.core.service.CouponService;
 import reactor.core.publisher.Mono;
@@ -36,7 +36,7 @@ public class CouponController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<Coupon> create(@Valid @RequestBody CreateCouponRequest request) {
-        return coupons.create(request.countryCode(), request.maxUsages());
+        return coupons.create(request.code(), request.countryCode(), request.maxUsages());
     }
 
     @PostMapping("/redeem")

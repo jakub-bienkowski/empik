@@ -36,6 +36,8 @@ java -jar .\target\empik-1.0-SNAPSHOT.jar
 
 The default base URL is `http://127.0.0.1:8080/empik`. For local testing, you can supply the client IP header yourself. In a deployment, only trust this header behind a reverse proxy that overwrites incoming values and prevents clients from reaching the app directly.
 
+IPinfo requests use a direct network connection. If redemption returns `503` and logs show a connection timeout, check that the application can reach `api.ipinfo.io` on port 443 from its runtime environment. Insomnia may use a different network or proxy configuration. The connect, response and per-attempt lookup timeouts can be adjusted with `IPINFO_CONNECT_TIMEOUT_MS` (default `1000`), `IPINFO_RESPONSE_TIMEOUT_MS` (default `2000`) and `IPINFO_LOOKUP_TIMEOUT_MS` (default `3000`).
+
 ## API
 
 Paths below include the default `/empik` prefix. Send JSON POST bodies with `Content-Type: application/json`.
@@ -44,18 +46,19 @@ Paths below include the default `/empik` prefix. Send JSON POST bodies with `Con
 
 ```json
 {
+  "code": "SALE5",
   "countryCode": "PL",
   "maxUsages": 2
 }
 ```
 
-`countryCode` must be an officially assigned uppercase ISO 3166-1 alpha-2 code. `maxUsages` must be a positive integer.
+`code` must be nonblank and at least 5 characters long. Codes are case-sensitive and unique per country. `countryCode` must be an officially assigned uppercase ISO 3166-1 alpha-2 code. `maxUsages` must be a positive integer.
 
 **`201 Created`** returns the coupon, with `currentUsages` initially set to `0`:
 
 ```json
 {
-  "code": "bf10e971-a525-4a63-b30b-4c251c078c15",
+  "code": "SALE5",
   "countryCode": "PL",
   "maxUsages": 2,
   "currentUsages": 0,
@@ -66,18 +69,19 @@ Paths below include the default `/empik` prefix. Send JSON POST bodies with `Con
 | Status | When |
 | --- | --- |
 | `400 Bad Request` | The request body is missing, malformed, or fails validation, including an invalid country code. |
+| `409 Conflict` | `Coupon code already exists for this country` |
 | `500 Internal Server Error` | An unexpected error occurs. |
 
 ### `POST /empik/coupons/redeem` — Redeem a coupon
 
 ```json
 {
-  "code": "bf10e971-a525-4a63-b30b-4c251c078c15",
+  "code": "SALE5",
   "userId": "customer-123"
 }
 ```
 
-Use the `code` returned by creation. It is a case-insensitive UUID. `userId` must be nonblank and at most 255 characters. Send exactly one IPv4 or IPv6 literal in `X-Forwarded-For` (or the configured header); repeated header values and comma-separated lists are not accepted. To test a successful redemption, use a public IP that IPinfo resolves to the coupon's country.
+Use the case-sensitive `code` supplied at creation. If the same code exists in multiple countries, the coupon for the resolved client country is redeemed. `userId` must be nonblank and at most 255 characters. Send exactly one IPv4 or IPv6 literal in `X-Forwarded-For` (or the configured header); repeated header values and comma-separated lists are not accepted. To test a successful redemption, use a public IP that IPinfo resolves to the coupon's country.
 
 | Status | Response |
 | --- | --- |

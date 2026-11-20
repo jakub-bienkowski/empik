@@ -1,4 +1,4 @@
-package pl.bienkowski.empik.utils.ip;
+package pl.bienkowski.empik.core.geolocation;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.beans.factory.annotation.Value;

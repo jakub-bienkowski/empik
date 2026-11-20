@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ServerWebInputException;
 import pl.bienkowski.empik.core.exception.ClientCountryUnavailableException;
 import pl.bienkowski.empik.core.exception.CouponAlreadyRedeemedException;
+import pl.bienkowski.empik.core.exception.CouponCodeAlreadyExistsException;
 import pl.bienkowski.empik.core.exception.CouponCountryMismatchException;
 import pl.bienkowski.empik.core.exception.CouponNotFoundException;
 import pl.bienkowski.empik.core.exception.CouponUsageLimitReachedException;
@@ -35,13 +36,18 @@ public class CouponExceptionAdvice {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, error.getMessage());
     }
 
-    @ExceptionHandler({CouponAlreadyRedeemedException.class, CouponUsageLimitReachedException.class})
+    @ExceptionHandler({
+            CouponAlreadyRedeemedException.class,
+            CouponCodeAlreadyExistsException.class,
+            CouponUsageLimitReachedException.class
+    })
     public ProblemDetail conflict(RuntimeException error) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, error.getMessage());
     }
 
     @ExceptionHandler(CountryLookupUnavailableException.class)
     public ProblemDetail lookupUnavailable(CountryLookupUnavailableException error) {
+        log.error("Could not connect to iplite", error);
         return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, error.getMessage());
     }
 
