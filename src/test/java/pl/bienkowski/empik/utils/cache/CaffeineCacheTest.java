@@ -2,7 +2,7 @@ package pl.bienkowski.empik.utils.cache;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.junit.jupiter.api.Test;
-import pl.bienkowski.empik.utils.ip.CountryResolver;
+import pl.bienkowski.empik.utils.ip.GeolocationResolver;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
@@ -28,7 +28,7 @@ class CaffeineCacheTest {
             .expireAfterWrite(TTL)
             .maximumSize(10)
             .buildAsync());
-    private final CountryResolver loader = mock(CountryResolver.class);
+    private final GeolocationResolver loader = mock(GeolocationResolver.class);
 
     @Test
     void getOrLoad_whenValueExpires_thenLoadsItAgain() {

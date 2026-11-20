@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class IpResolverTest {
+class IpGeolocationResolverTest {
 
     @Test
     void resolve_whenProviderRecoversAfterThree503Responses_thenReturnsCountry() {
@@ -24,7 +24,7 @@ class IpResolverTest {
                         : ClientResponse.create(HttpStatus.OK)
                                 .header("Content-Type", "application/json")
                                 .body("{\"country_code\":\"PL\"}").build())).build();
-        var resolver = new IpResolver(client, "test-token", 1000);
+        var resolver = new IpGeolocationResolver(client, "test-token", 1000);
 
         StepVerifier.withVirtualTime(() -> resolver.resolve("1.1.1.1"))
                 .thenAwait(Duration.ofSeconds(2))
@@ -41,7 +41,7 @@ class IpResolverTest {
             attempts.incrementAndGet();
             return Mono.never();
         }).build();
-        var resolver = new IpResolver(client, "test-token", 1000);
+        var resolver = new IpGeolocationResolver(client, "test-token", 1000);
 
         StepVerifier.withVirtualTime(() -> resolver.resolve("1.1.1.1"))
                 .thenAwait(Duration.ofSeconds(6))
@@ -57,7 +57,7 @@ class IpResolverTest {
             attempts.incrementAndGet();
             return Mono.just(ClientResponse.create(HttpStatus.INTERNAL_SERVER_ERROR).build());
         }).build();
-        var resolver = new IpResolver(client, "test-token", 1000);
+        var resolver = new IpGeolocationResolver(client, "test-token", 1000);
 
         StepVerifier.create(resolver.resolve("1.1.1.1"))
                 .expectError(CountryLookupUnavailableException.class)

@@ -12,14 +12,14 @@ import java.time.Duration;
 
 @Primary
 @Component
-public final class CachedCountryResolver implements CountryResolver {
+public final class CachedGeolocationResolver implements GeolocationResolver {
 
-    private final CountryResolver delegate;
+    private final GeolocationResolver delegate;
     private final Cacheable<String, String> cache;
 
-    public CachedCountryResolver(IpResolver delegate,
-                                 @Value("${ipinfo.cache.maximum-size}") long maximumSize,
-                                 @Value("${ipinfo.cache.ttl}") Duration ttl) {
+    public CachedGeolocationResolver(IpGeolocationResolver delegate,
+                                     @Value("${ipinfo.cache.maximum-size}") long maximumSize,
+                                     @Value("${ipinfo.cache.ttl}") Duration ttl) {
         this.delegate = delegate;
         this.cache = new CaffeineCache<>(Caffeine.newBuilder()
                 .maximumSize(maximumSize)

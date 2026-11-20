@@ -18,20 +18,20 @@ import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 
 @Component
-public final class IpResolver implements CountryResolver {
+public final class IpGeolocationResolver implements GeolocationResolver {
 
     private static final String IP_ENDPOINT = "/lite/{ip}";
     private static final Retry LOOKUP_RETRY = Retry.backoff(3, Duration.ofMillis(100))
-            .filter(IpResolver::isRetryable)
+            .filter(IpGeolocationResolver::isRetryable)
             .onRetryExhaustedThrow((_, signal) -> signal.failure());
 
     private final WebClient client;
     private final String token;
     private final Duration lookupTimeout;
 
-    public IpResolver(@Qualifier("ipInfoWebClient") WebClient client,
-                      @Value("${ipinfo.token}") String token,
-                      @Value("${ipinfo.lookup-timeout-ms}") long lookupTimeoutMs) {
+    public IpGeolocationResolver(@Qualifier("ipInfoWebClient") WebClient client,
+                                 @Value("${ipinfo.token}") String token,
+                                 @Value("${ipinfo.lookup-timeout-ms}") long lookupTimeoutMs) {
         this.client = client;
         this.token = token;
         this.lookupTimeout = Duration.ofMillis(lookupTimeoutMs);

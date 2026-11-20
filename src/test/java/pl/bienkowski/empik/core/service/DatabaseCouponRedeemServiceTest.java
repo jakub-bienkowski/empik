@@ -7,7 +7,7 @@ import pl.bienkowski.empik.core.repository.CouponRedemptionRepository;
 import pl.bienkowski.empik.core.repository.CouponRepository;
 import pl.bienkowski.empik.core.validation.CountryCodeValidator;
 import pl.bienkowski.empik.core.validation.CouponRedeemValidator;
-import pl.bienkowski.empik.utils.ip.CountryResolver;
+import pl.bienkowski.empik.utils.ip.GeolocationResolver;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
@@ -25,7 +25,7 @@ class DatabaseCouponRedeemServiceTest {
     void redeem_whenLookupIsPendingOrFails_thenDoesNotStartDatabaseWork() {
         var coupons = mock(CouponRepository.class);
         var redemptions = mock(CouponRedemptionRepository.class);
-        var resolver = mock(CountryResolver.class);
+        var resolver = mock(GeolocationResolver.class);
         var transactions = mock(TransactionalOperator.class);
         var lookup = Sinks.<String>one();
         String clientIp = "1.1.1.1";
