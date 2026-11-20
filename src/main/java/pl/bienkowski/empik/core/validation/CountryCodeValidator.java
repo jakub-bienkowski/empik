@@ -13,7 +13,6 @@ public final class CountryCodeValidator implements Validator<String> {
 
     @Override
     public void validate(String countryCode) {
-        System.out.println("Validating " + countryCode);
         if (!COUNTRY_CODES.contains(countryCode)) {
             throw new InvalidCountryCodeException();
         }

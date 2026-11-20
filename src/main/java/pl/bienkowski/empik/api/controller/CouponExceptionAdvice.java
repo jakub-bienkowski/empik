@@ -46,9 +46,8 @@ public class CouponExceptionAdvice {
     }
 
     @ExceptionHandler(CountryLookupUnavailableException.class)
-    public ProblemDetail lookupUnavailable(CountryLookupUnavailableException error) {
-        log.error("Could not connect to iplite", error);
-        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, error.getMessage());
+    public ProblemDetail lookupUnavailable() {
+        return ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     @ExceptionHandler(ServerWebInputException.class)
@@ -58,7 +57,7 @@ public class CouponExceptionAdvice {
 
     @ExceptionHandler(Exception.class)
     public ProblemDetail exception(Exception error) {
-        log.error(error.getMessage(), error);
+        log.error("Unexpected coupon request failure", error);
         return ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

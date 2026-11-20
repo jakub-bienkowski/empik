@@ -1,30 +1,21 @@
 package pl.bienkowski.empik.core.geolocation;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.netty.channel.ConnectTimeoutException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientRequestException;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import pl.bienkowski.empik.core.exception.CountryLookupUnavailableException;
 import reactor.core.publisher.Mono;
-import reactor.util.retry.Retry;
 
 import java.time.Duration;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 public final class IpGeolocationResolver implements GeolocationResolver {
 
     private static final String IP_ENDPOINT = "/lite/{ip}";
-    private static final Retry LOOKUP_RETRY = Retry.backoff(3, Duration.ofMillis(100))
-            .filter(IpGeolocationResolver::isRetryable)
-            .onRetryExhaustedThrow((_, signal) -> signal.failure());
-
     private final WebClient client;
     private final String token;
     private final Duration lookupTimeout;
@@ -39,30 +30,38 @@ public final class IpGeolocationResolver implements GeolocationResolver {
 
     @Override
     public Mono<String> resolve(String ip) {
+        return Mono.defer(() -> resolveOnSubscription(ip));
+    }
+
+    private Mono<String> resolveOnSubscription(String ip) {
         if (token.isBlank()) {
-            return Mono.error(CountryLookupUnavailableException::new);
+            IpInfoLookupLog.missingToken();
+            return Mono.error(new CountryLookupUnavailableException());
         }
 
-        return Mono.defer(() -> client.get()
-                .uri(IP_ENDPOINT, ip)
-                .headers(headers -> headers.setBearerAuth(token))
-                .retrieve()
-                .bodyToMono(IpInfoResponse.class))
-                .mapNotNull(IpInfoResponse::countryCode)
-                .timeout(lookupTimeout)
-                .retryWhen(LOOKUP_RETRY)
+        var attempts = new AtomicInteger();
+        long started = System.nanoTime();
+        return requestCountry(ip, attempts)
+                .retryWhen(IpInfoRetryPolicy.LOOKUP_RETRY)
+                .doOnError(error -> IpInfoLookupLog.logFailure(error, attempts.get(), started))
+                .switchIfEmpty(Mono.defer(() -> {
+                    IpInfoLookupLog.logMissingCountry(attempts.get(), started);
+                    return Mono.empty();
+                }))
                 .onErrorMap(Exception.class, CountryLookupUnavailableException::new);
     }
 
-    private static boolean isRetryable(Throwable error) {
-        if (error instanceof WebClientResponseException response) {
-            return response.getStatusCode().value() == HttpStatus.SERVICE_UNAVAILABLE.value();
-        }
-
-        Throwable cause = error instanceof WebClientRequestException ? error.getCause() : error;
-        return cause instanceof TimeoutException
-                || cause instanceof ConnectTimeoutException
-                || cause instanceof io.netty.handler.timeout.TimeoutException;
+    private Mono<String> requestCountry(String ip, AtomicInteger attempts) {
+        return Mono.defer(() -> {
+            attempts.incrementAndGet();
+            return client.get()
+                    .uri(IP_ENDPOINT, ip)
+                    .headers(headers -> headers.setBearerAuth(token))
+                    .retrieve()
+                    .bodyToMono(IpInfoResponse.class);
+                })
+                .mapNotNull(IpInfoResponse::countryCode)
+                .timeout(lookupTimeout);
     }
 
     private record IpInfoResponse(@JsonProperty("country_code") @Nullable String countryCode) {
