@@ -1,15 +1,16 @@
 package pl.bienkowski.empik.core.geolocation;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
+import pl.bienkowski.empik.core.config.IpInfoProperties;
 import pl.bienkowski.empik.utils.cache.Cacheable;
 import pl.bienkowski.empik.utils.cache.CaffeineCache;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
-
+/**
+ * Caches successful country lookups; empty and failed lookups are not retained.
+ */
 @Primary
 @Component
 public final class CachedGeolocationResolver implements GeolocationResolver {
@@ -18,12 +19,11 @@ public final class CachedGeolocationResolver implements GeolocationResolver {
     private final Cacheable<String, String> cache;
 
     public CachedGeolocationResolver(IpGeolocationResolver delegate,
-                                     @Value("${ipinfo.cache.maximum-size}") long maximumSize,
-                                     @Value("${ipinfo.cache.ttl}") Duration ttl) {
+                                     IpInfoProperties properties) {
         this.delegate = delegate;
         this.cache = new CaffeineCache<>(Caffeine.newBuilder()
-                .maximumSize(maximumSize)
-                .expireAfterWrite(ttl)
+                .maximumSize(properties.cache().maximumSize())
+                .expireAfterWrite(properties.cache().ttl())
                 .buildAsync());
     }
 

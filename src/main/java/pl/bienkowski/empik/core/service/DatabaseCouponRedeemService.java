@@ -17,6 +17,10 @@ import pl.bienkowski.empik.core.validation.CouponRedeemValidator;
 import pl.bienkowski.empik.core.geolocation.GeolocationResolver;
 import reactor.core.publisher.Mono;
 
+/**
+ * Resolves the client's country before opening a transaction, then atomically records
+ * the redemption and claims a usage.
+ */
 @Service
 @NullMarked
 public class DatabaseCouponRedeemService implements CouponRedeemService {

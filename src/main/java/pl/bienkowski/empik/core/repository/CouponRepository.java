@@ -17,14 +17,29 @@ public interface CouponRepository extends Repository<CouponEntity, UUID> {
 
     Mono<Boolean> existsByCode(String code);
 
-    @Modifying
-    @Query("""
+    /**
+     * Atomically increments usage only while capacity remains.
+     *
+     * @param id coupon identifier
+     * @return the number of updated rows, either zero or one
+      */
+     @Modifying
+     @Query("""
             UPDATE coupons
             SET current_usages = current_usages + 1
             WHERE id = :id AND current_usages < max_usages
             """)
     Mono<Integer> claimUsage(@Param("id") UUID id);
 
+    /**
+     * Inserts a coupon, returning an empty result if its code already exists in the country.
+     *
+     * @param id coupon identifier
+     * @param code case-sensitive coupon code
+     * @param countryCode coupon country
+     * @param maxUsages maximum number of redemptions
+     * @return the inserted coupon, or empty on a code and country conflict
+     */
     @Query("""
             INSERT INTO coupons (id, code, country_code, max_usages)
             VALUES (:id, :code, :countryCode, :maxUsages)

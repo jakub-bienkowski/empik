@@ -9,6 +9,10 @@ import reactor.util.retry.Retry;
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 
+/**
+ * Retries IPinfo timeouts and HTTP 503 responses up to three times with exponential backoff.
+ * The last failure is propagated unchanged when retries are exhausted.
+ */
 final class IpInfoRetryPolicy {
 
     static final Retry LOOKUP_RETRY = Retry.backoff(3, Duration.ofMillis(100))

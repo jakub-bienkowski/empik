@@ -24,14 +24,12 @@ final class IpInfoLookupLog {
         log.debug("Retrying IPinfo lookup: attempt={}, reason={}", attempt, getFailureReason(error));
     }
 
-    static void logFailure(Throwable error, int attempts, long started) {
-        log.warn("IPinfo lookup failed: reason={}, attempts={}, durationMs={}",
-                getFailureReason(error), attempts, getElapsedTime(started));
+    static void logFailure(Throwable error, long started) {
+        log.warn("IPinfo lookup failed: reason={}, durationMs={}", getFailureReason(error), getElapsedTime(started));
     }
 
-    static void logMissingCountry(int attempts, long started) {
-        log.warn("IPinfo lookup returned no country code: attempts={}, durationMs={}",
-                attempts, getElapsedTime(started));
+    static void logMissingCountry(long started) {
+        log.warn("IPinfo lookup returned no country code: durationMs={}", getElapsedTime(started));
     }
 
     private static long getElapsedTime(long started) {

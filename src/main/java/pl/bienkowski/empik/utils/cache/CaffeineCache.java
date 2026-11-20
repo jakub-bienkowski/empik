@@ -6,6 +6,13 @@ import reactor.core.publisher.Signal;
 
 import java.util.function.Supplier;
 
+/**
+ * Shares in-flight loads between callers without letting one cancellation cancel the shared
+ * load. Empty and failed results are removed so subsequent calls can retry.
+ *
+ * @param <K> cache key type
+ * @param <V> cached value type
+ */
 public final class CaffeineCache<K, V> implements Cacheable<K, V> {
 
     private final AsyncCache<K, Signal<V>> cache;

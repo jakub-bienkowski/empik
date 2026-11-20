@@ -2,11 +2,13 @@ package pl.bienkowski.empik.core.exception;
 
 public final class CountryLookupUnavailableException extends RuntimeException {
 
+    private static final String MESSAGE = "IP country lookup is unavailable";
+
     public CountryLookupUnavailableException() {
-        super("IP country lookup is unavailable");
+        super(MESSAGE);
     }
 
     public CountryLookupUnavailableException(Throwable cause) {
-        super("IP country lookup is unavailable", cause);
+        super(MESSAGE, cause);
     }
 }

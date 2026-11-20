@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
+import pl.bienkowski.empik.core.config.IpInfoProperties;
 import pl.bienkowski.empik.core.exception.CountryLookupUnavailableException;
 import pl.bienkowski.empik.core.geolocation.IpGeolocationResolver;
 import reactor.core.publisher.Mono;
@@ -29,14 +30,14 @@ class IpGeolocationResolverTest {
         try {
             var client = WebClient.builder().exchangeFunction(request -> Mono.just(
                     ClientResponse.create(HttpStatus.UNAUTHORIZED).build())).build();
-            var resolver = new IpGeolocationResolver(client, "private-token", 1000);
+            var resolver = new IpGeolocationResolver(client, properties("private-token"));
             StepVerifier.create(resolver.resolve("8.8.8.8"))
                     .expectError(CountryLookupUnavailableException.class)
                     .verify(Duration.ofSeconds(5));
 
             assertThat(appender.list).hasSize(1);
             var event = appender.list.getFirst();
-            assertThat(event.getFormattedMessage()).contains("HTTP 401", "attempts=1", "durationMs=")
+            assertThat(event.getFormattedMessage()).contains("HTTP 401", "durationMs=")
                     .doesNotContain("8.8.8.8", "private-token");
             assertThat(event.getThrowableProxy()).isNull();
         } finally {
@@ -55,7 +56,7 @@ class IpGeolocationResolverTest {
             var client = WebClient.builder().exchangeFunction(request -> Mono.just(
                     ClientResponse.create(HttpStatus.OK).header("Content-Type", "application/json")
                             .body("{}").build())).build();
-            var resolver = new IpGeolocationResolver(client, "test-token", 1000);
+            var resolver = new IpGeolocationResolver(client, properties("test-token"));
             StepVerifier.create(resolver.resolve("8.8.8.8")).verifyComplete();
             assertThat(appender.list).extracting(ILoggingEvent::getFormattedMessage)
                     .singleElement().asString().contains("returned no country code");
@@ -75,7 +76,7 @@ class IpGeolocationResolverTest {
                             .header("Content-Type", "application/json")
                             .body("{\"country_code\":\"US\"}").build());
                 }).build();
-        var resolver = new IpGeolocationResolver(client, "configured-token", 1000);
+        var resolver = new IpGeolocationResolver(client, properties("configured-token"));
 
         StepVerifier.create(resolver.resolve("8.8.8.8"))
                 .expectNext("US")
@@ -89,7 +90,7 @@ class IpGeolocationResolverTest {
             attempts.incrementAndGet();
             return Mono.error(new AssertionError("Unexpected provider request"));
         }).build();
-        var resolver = new IpGeolocationResolver(client, "", 1000);
+        var resolver = new IpGeolocationResolver(client, properties(""));
 
         StepVerifier.create(resolver.resolve("8.8.8.8"))
                 .expectError(CountryLookupUnavailableException.class)
@@ -106,7 +107,7 @@ class IpGeolocationResolverTest {
                         : ClientResponse.create(HttpStatus.OK)
                                 .header("Content-Type", "application/json")
                                 .body("{\"country_code\":\"PL\"}").build())).build();
-        var resolver = new IpGeolocationResolver(client, "test-token", 1000);
+        var resolver = new IpGeolocationResolver(client, properties("test-token"));
 
         StepVerifier.withVirtualTime(() -> resolver.resolve("1.1.1.1"))
                 .thenAwait(Duration.ofSeconds(2))
@@ -123,7 +124,7 @@ class IpGeolocationResolverTest {
             attempts.incrementAndGet();
             return Mono.never();
         }).build();
-        var resolver = new IpGeolocationResolver(client, "test-token", 1000);
+        var resolver = new IpGeolocationResolver(client, properties("test-token"));
 
         StepVerifier.withVirtualTime(() -> resolver.resolve("1.1.1.1"))
                 .thenAwait(Duration.ofSeconds(6))
@@ -139,7 +140,7 @@ class IpGeolocationResolverTest {
             attempts.incrementAndGet();
             return Mono.just(ClientResponse.create(HttpStatus.INTERNAL_SERVER_ERROR).build());
         }).build();
-        var resolver = new IpGeolocationResolver(client, "test-token", 1000);
+        var resolver = new IpGeolocationResolver(client, properties("test-token"));
 
         StepVerifier.create(resolver.resolve("1.1.1.1"))
                 .expectError(CountryLookupUnavailableException.class)
@@ -148,7 +149,7 @@ class IpGeolocationResolverTest {
     }
 
     @Test
-    void resolve_whenResubscribed_tracksAttemptsPerSubscription() {
+    void resolve_whenResubscribed_retriesIndependently() {
         var logger = (Logger) LoggerFactory.getLogger(IpGeolocationResolver.class);
         var appender = new ListAppender<ILoggingEvent>();
         appender.start();
@@ -158,7 +159,7 @@ class IpGeolocationResolverTest {
             var client = WebClient.builder().exchangeFunction(request -> Mono.just(
                     ClientResponse.create(requests.incrementAndGet() <= 4
                             ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.UNAUTHORIZED).build())).build();
-            var resolver = new IpGeolocationResolver(client, "test-token", 1000);
+            var resolver = new IpGeolocationResolver(client, properties("test-token"));
             var lookup = resolver.resolve("1.1.1.1");
 
             StepVerifier.withVirtualTime(() -> lookup)
@@ -173,11 +174,16 @@ class IpGeolocationResolverTest {
             assertThat(appender.list).extracting(ILoggingEvent::getFormattedMessage)
                     .filteredOn(message -> message.startsWith("IPinfo lookup failed"))
                     .satisfiesExactly(
-                            message -> assertThat(message).contains("HTTP 503", "attempts=4"),
-                            message -> assertThat(message).contains("HTTP 401", "attempts=1"));
+                            message -> assertThat(message).contains("HTTP 503"),
+                            message -> assertThat(message).contains("HTTP 401"));
         } finally {
             logger.detachAppender(appender);
             appender.stop();
         }
+    }
+
+    private static IpInfoProperties properties(String token) {
+        return new IpInfoProperties("https://example.test", token, 1000, 2000, 1000,
+                new IpInfoProperties.Cache(10000, Duration.ofHours(1)));
     }
 }

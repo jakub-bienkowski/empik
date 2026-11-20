@@ -38,7 +38,7 @@ The default base URL is `http://127.0.0.1:8080/empik`. For local testing, you ca
 
 IPinfo requests use a direct network connection. If redemption returns `503` and logs show a connection timeout, check that the application can reach `api.ipinfo.io` on port 443 from its runtime environment. Insomnia may use a different network or proxy configuration. The connect, response and per-attempt lookup timeouts can be adjusted with `IPINFO_CONNECT_TIMEOUT_MS` (default `1000`), `IPINFO_RESPONSE_TIMEOUT_MS` (default `2000`) and `IPINFO_LOOKUP_TIMEOUT_MS` (default `3000`).
 
-IPinfo lookup failures are logged without the client IP or token. Failed provider requests include a reason, attempt count and duration. Retry details are available at DEBUG level for `pl.bienkowski.empik.core.geolocation.IpGeolocationResolver`. Database readiness logs only failure and recovery transitions, not every probe.
+IPinfo lookup failures are logged without the client IP or token. Failed provider requests include a reason and duration. Retry details are available at DEBUG level for `pl.bienkowski.empik.core.geolocation.IpGeolocationResolver`. Database readiness logs only failure and recovery transitions, not every probe.
 
 ## API
 
