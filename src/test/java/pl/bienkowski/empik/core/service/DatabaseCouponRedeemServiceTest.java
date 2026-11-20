@@ -37,6 +37,7 @@ class DatabaseCouponRedeemServiceTest {
         var transactions = mock(TransactionalOperator.class);
         var id = UUID.randomUUID();
         var redemptionId = new CouponRedemptionId(id, "user-1");
+
         when(resolver.resolve("1.1.1.1")).thenReturn(Mono.just("PL"));
         when(transactions.transactional(any(Mono.class))).thenAnswer(call -> call.getArgument(0));
         when(coupons.findByCodeAndCountryCode("SALE5", "PL"))
@@ -44,6 +45,7 @@ class DatabaseCouponRedeemServiceTest {
         when(redemptions.insert(redemptionId))
                 .thenReturn(Mono.just(new CouponRedemptionEntity(redemptionId, Instant.EPOCH)));
         when(coupons.claimUsage(id)).thenReturn(Mono.just(1));
+
         var service = new DatabaseCouponRedeemService(
                 coupons, redemptions, new CouponRedeemValidator(new CountryCodeValidator()), resolver, transactions);
 
@@ -60,10 +62,12 @@ class DatabaseCouponRedeemServiceTest {
         var redemptions = mock(CouponRedemptionRepository.class);
         var resolver = mock(GeolocationResolver.class);
         var transactions = mock(TransactionalOperator.class);
+
         when(resolver.resolve("1.1.1.1")).thenReturn(Mono.just("PL"));
         when(transactions.transactional(any(Mono.class))).thenAnswer(call -> call.getArgument(0));
         when(coupons.findByCodeAndCountryCode("SALE5", "PL")).thenReturn(Mono.empty());
         when(coupons.existsByCode("SALE5")).thenReturn(Mono.just(true), Mono.just(false));
+
         var service = new DatabaseCouponRedeemService(
                 coupons, redemptions, new CouponRedeemValidator(new CountryCodeValidator()), resolver, transactions);
 
@@ -71,6 +75,7 @@ class DatabaseCouponRedeemServiceTest {
                 .expectError(CouponCountryMismatchException.class).verify(Duration.ofSeconds(5));
         StepVerifier.create(service.redeem("SALE5", "user-1", "1.1.1.1"))
                 .expectError(CouponNotFoundException.class).verify(Duration.ofSeconds(5));
+
         verifyNoInteractions(redemptions);
     }
 
@@ -82,7 +87,9 @@ class DatabaseCouponRedeemServiceTest {
         var transactions = mock(TransactionalOperator.class);
         var lookup = Sinks.<String>one();
         String clientIp = "1.1.1.1";
+
         when(resolver.resolve(clientIp)).thenReturn(lookup.asMono());
+
         var service = new DatabaseCouponRedeemService(
                 coupons, redemptions, new CouponRedeemValidator(new CountryCodeValidator()), resolver, transactions);
 

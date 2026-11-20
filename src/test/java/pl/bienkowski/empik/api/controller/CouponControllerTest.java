@@ -87,16 +87,19 @@ class CouponControllerTest {
                 .expectBody().jsonPath("$.detail").isEqualTo("Coupon code already exists for this country");
     }
 
-    @Test
-    void create_whenCodeIsMissingBlankOrShort_thenReturnsBadRequest() {
-        for (var body : java.util.List.of(
+    @ParameterizedTest
+    @MethodSource("invalidCouponCodes")
+    void create_whenCodeIsMissingBlankOrShort_thenReturnsBadRequest(Map<String, Object> body) {
+        client.post().uri("/coupons").contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body).exchange().expectStatus().isBadRequest();
+        verifyNoInteractions(coupons);
+    }
+
+    private static Stream<Map<String, Object>> invalidCouponCodes() {
+        return Stream.of(
                 Map.of("countryCode", "PL", "maxUsages", 2),
                 Map.of("code", "    ", "countryCode", "PL", "maxUsages", 2),
-                Map.of("code", "abcd", "countryCode", "PL", "maxUsages", 2))) {
-            client.post().uri("/coupons").contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(body).exchange().expectStatus().isBadRequest();
-        }
-        verifyNoInteractions(coupons);
+                Map.of("code", "abcd", "countryCode", "PL", "maxUsages", 2));
     }
 
     @Test

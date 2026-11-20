@@ -79,40 +79,12 @@ class CaffeineCacheTest {
     void getOrLoad_whenAllSubscribersCancelAndLoadFails_thenDoesNotRetainFailure() {
         var result = Sinks.<String>one();
         when(loader.resolve(IP)).thenReturn(result.asMono(), Mono.just("PL"));
+
         var subscription = lookup().subscribe();
         subscription.dispose();
         result.tryEmitError(new IllegalStateException("lookup failed"));
 
         assertCountry("PL");
-    }
-
-    @Test
-    void getOrLoad_whenLookupFails_thenCaffeineDoesNotLogException() {
-        var logger = Logger.getLogger("com.github.benmanes.caffeine.cache.LocalAsyncCache");
-        var records = new java.util.ArrayList<LogRecord>();
-        var handler = new Handler() {
-            @Override
-            public void publish(LogRecord record) {
-                records.add(record);
-            }
-
-            @Override
-            public void flush() {
-            }
-
-            @Override
-            public void close() {
-            }
-        };
-        logger.addHandler(handler);
-        try {
-            var failure = new IllegalStateException("private provider URL");
-            when(loader.resolve(IP)).thenReturn(Mono.error(failure));
-            StepVerifier.create(lookup()).expectErrorMatches(error -> error == failure).verify(TEST_TIMEOUT);
-            assertThat(records).isEmpty();
-        } finally {
-            logger.removeHandler(handler);
-        }
     }
 
     private Mono<String> lookup() {

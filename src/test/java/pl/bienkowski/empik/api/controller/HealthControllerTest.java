@@ -29,27 +29,34 @@ class HealthControllerTest {
     @Test
     void liveness_whenAvailabilityChanges_thenReportsStateWithoutQueryingDatabase() {
         when(availability.getLivenessState()).thenReturn(LivenessState.CORRECT, LivenessState.BROKEN);
+
         client.get().uri("/health/liveness").exchange().expectStatus().isOk();
         client.get().uri("/health/liveness").exchange().expectStatus().isEqualTo(503);
+
         verifyNoInteractions(database);
     }
 
     @Test
     void readiness_whenAppRefusesTraffic_thenReturnsUnavailableWithoutQueryingDatabase() {
         when(availability.getReadinessState()).thenReturn(ReadinessState.REFUSING_TRAFFIC);
+
         client.get().uri("/health/readiness").exchange().expectStatus().isEqualTo(503);
+
         verifyNoInteractions(database);
     }
 
     @Test
     void readiness_whenAppAcceptsTraffic_thenReflectsDatabaseHealth() {
         when(availability.getReadinessState()).thenReturn(ReadinessState.ACCEPTING_TRAFFIC);
+
         var query = mock(DatabaseClient.GenericExecuteSpec.class);
         RowsFetchSpec<Boolean> result = mock();
+
         when(database.sql("SELECT 1")).thenReturn(query);
         when(query.map(ArgumentMatchers.<BiFunction<Row, RowMetadata, Boolean>>any()))
                 .thenReturn(result);
         when(result.one()).thenReturn(Mono.just(true), Mono.error(new DataAccessResourceFailureException("offline")));
+
         client.get().uri("/health/readiness").exchange().expectStatus().isOk();
         client.get().uri("/health/readiness").exchange().expectStatus().isEqualTo(503);
     }
